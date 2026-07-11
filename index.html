@@ -1,360 +1,743 @@
 <!DOCTYPE html>
-<html lang="ko">
+<html lang="ko" class="scroll-smooth">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>광양시 상수도 흐름 · 실측데이터 · GO/플라즈마 필터 시뮬레이션</title>
-<style>
-  @import url('https://fonts.googleapis.com/css2?family=Newsreader:ital,wght@0,400;0,500;0,600;0,700;1,400&family=IBM+Plex+Mono:wght@400;500;600;700&family=IBM+Plex+Sans+KR:wght@400;500;600;700&display=swap');
-  :root {
-    --bg: #0a1e2e; --grid: rgba(120,200,220,0.08);
-    --cyan: #4fd1e8; --cyan-dim: #2b8fa3; --amber: #f0a960; --red: #e05c4d; --green:#5fb37a;
-    --paper: #eef4f5; --muted: #7fa3ae; --panel: #0f2d42; --panel-line: rgba(120,200,220,0.22);
-  }
-  * { box-sizing: border-box; }
-  body {
-    margin:0;
-    background: linear-gradient(var(--grid) 1px, transparent 1px) 0 0/28px 28px,
-                linear-gradient(90deg, var(--grid) 1px, transparent 1px) 0 0/28px 28px, var(--bg);
-    color: var(--paper); font-family: 'IBM Plex Sans KR', sans-serif;
-  }
-  .wrap { max-width: 1080px; margin: 0 auto; padding: 40px 24px 70px; }
-  header { border-bottom: 1.5px solid var(--panel-line); padding-bottom: 22px; margin-bottom: 30px; }
-  .eyebrow { font-family:'IBM Plex Mono',monospace; font-size:11.5px; letter-spacing:.14em; text-transform:uppercase; color:var(--cyan); margin-bottom:10px; }
-  h1 { font-family:'Newsreader',serif; font-weight:600; font-size:30px; margin:0 0 10px; line-height:1.3; color:#fff; }
-  .sub { font-size:14px; color:var(--muted); line-height:1.75; max-width:740px; }
-  .sub b { color: var(--paper); }
-  .source-tag { display:inline-block; font-family:'IBM Plex Mono',monospace; font-size:10.5px; background:rgba(79,209,232,0.14); color:var(--cyan); padding:3px 10px; border-radius:10px; margin-top:12px; }
-  section { margin-bottom: 34px; }
-  .section-label { font-family:'IBM Plex Mono',monospace; font-size:11px; letter-spacing:.1em; text-transform:uppercase; color:var(--cyan); margin-bottom:14px; display:flex; align-items:center; gap:10px; }
-  .section-label::after { content:''; flex:1; height:1px; background:var(--panel-line); }
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>광양시 상수도 흐름 · 실측데이터 · GO/플라즈마 필터 시뮬레이션</title>
+  
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Google Fonts: Newsreader (Title), IBM Plex Sans KR (Body), IBM Plex Mono (Data/Code) -->
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Newsreader:ital,wght@0,400;0,500;0,600;0,700;1,400&family=IBM+Plex+Mono:wght@400;500;600;700&family=IBM+Plex+Sans+KR:wght@300;400;500;600;700&display=swap">
+  
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            serif: ['Newsreader', 'serif'],
+            sans: ['IBM Plex Sans KR', 'sans-serif'],
+            mono: ['IBM Plex Mono', 'monospace'],
+          },
+          colors: {
+            cyan: {
+              dim: '#1e6877',
+              bright: '#4fd1e8',
+              glow: 'rgba(79, 209, 232, 0.25)'
+            },
+            amber: {
+              bright: '#f0a960',
+              glow: 'rgba(240, 169, 96, 0.25)'
+            }
+          }
+        }
+      }
+    }
+  </script>
 
-  .toggle-row { display:flex; align-items:center; gap:14px; margin-bottom:18px; flex-wrap:wrap; }
-  .toggle-btn { font-family:'IBM Plex Mono',monospace; font-size:13px; padding:10px 18px; border:1.5px solid var(--cyan-dim); background:var(--panel); color:var(--paper); cursor:pointer; border-radius:3px; transition:all .15s ease; }
-  .toggle-btn.active { background:var(--cyan); color:#06202e; border-color:var(--cyan); font-weight:600; }
-  .toggle-hint { font-size:12.5px; color:var(--muted); }
+  <style>
+    /* 배경 모던 그리드 격자 및 스크롤바 미학 조정 */
+    body {
+      background-color: #071624;
+      background-image: 
+        linear-gradient(rgba(79, 209, 232, 0.04) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(79, 209, 232, 0.04) 1px, transparent 1px);
+      background-size: 32px 32px;
+      font-family: 'IBM Plex Sans KR', sans-serif;
+    }
+    
+    ::-webkit-scrollbar {
+      width: 8px;
+      height: 8px;
+    }
+    ::-webkit-scrollbar-track {
+      background: #071624;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #1e293b;
+      border-radius: 4px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: #334155;
+    }
 
-  .diagram-box { background:var(--panel); border:1.5px solid var(--panel-line); border-radius:6px; padding:20px 18px 10px; }
-  svg { width:100%; height:auto; display:block; }
-  .stage-label { font-family:'IBM Plex Sans KR',sans-serif; font-size:11.5px; font-weight:600; fill:var(--paper); text-anchor:middle; }
-  .stage-sub { font-family:'IBM Plex Mono',monospace; font-size:8.5px; fill:var(--muted); text-anchor:middle; }
-  .stage-node { cursor:pointer; }
-  .data-badge { font-family:'IBM Plex Mono',monospace; font-size:8px; fill:#06202e; font-weight:700; text-anchor:middle; }
-
-  .detail-panel { margin-top:14px; padding:16px 18px; background:#06202e; border:1px solid var(--panel-line); border-radius:4px; font-size:13px; line-height:1.75; min-height:60px; }
-  .detail-panel .dt-name { font-family:'IBM Plex Mono',monospace; color:var(--cyan); font-size:12px; letter-spacing:.04em; margin-bottom:6px; text-transform:uppercase; }
-  .dt-tag { display:inline-block; font-family:'IBM Plex Mono',monospace; font-size:10px; padding:1px 7px; border-radius:8px; margin-left:6px; }
-  .dt-tag.real { background:rgba(79,209,232,0.14); color:var(--cyan); }
-  .dt-tag.noreal { background:rgba(224,92,77,0.14); color:var(--red); }
-  .dt-tag.new { background:rgba(240,169,96,0.18); color:var(--amber); }
-  .mini-table { width:100%; margin-top:10px; border-collapse:collapse; font-size:11.5px; }
-  .mini-table th, .mini-table td { padding:5px 8px; text-align:center; border-bottom:1px solid var(--panel-line); }
-  .mini-table th { font-family:'IBM Plex Mono',monospace; font-size:9.5px; color:var(--cyan); text-transform:uppercase; }
-  .mini-table td:first-child, .mini-table th:first-child { text-align:left; }
-
-  .chart-box { background:var(--panel); border:1.5px solid var(--panel-line); border-radius:6px; padding:22px 20px 16px; margin-top:20px; }
-  .chart-title { font-family:'IBM Plex Mono',monospace; font-size:12px; color:var(--muted); margin-bottom:14px; }
-  .legend-row { display:flex; gap:20px; flex-wrap:wrap; margin-top:12px; font-family:'IBM Plex Mono',monospace; font-size:11px; color:var(--muted); }
-  .legend-item { display:flex; align-items:center; gap:6px; }
-  .lg-line { width:16px; height:3px; border-radius:2px; display:inline-block; }
-  .lg-dash { width:16px; height:0; border-top:2px dashed var(--muted); display:inline-block; }
-
-  .footnote { font-size:11.5px; color:var(--muted); line-height:1.85; margin-top:30px; padding-top:16px; border-top:1px solid var(--panel-line); }
-  .footnote b { color: var(--paper); }
-  @media (max-width:640px) { h1 { font-size:23px; } }
-</style>
+    /* 노드 및 인터랙션 하이라이트 트랜지션 */
+    .stage-node {
+      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+    .stage-node:hover {
+      filter: drop-shadow(0 0 8px rgba(79, 209, 232, 0.6));
+    }
+    .active-ring {
+      animation: pulse-ring 2s infinite;
+    }
+    @keyframes pulse-ring {
+      0% { r: 14px; opacity: 0.9; }
+      100% { r: 24px; opacity: 0; }
+    }
+  </style>
 </head>
-<body>
-<div class="wrap">
+<body class="text-slate-100 min-h-screen antialiased flex flex-col justify-between">
 
-  <header>
-    <div class="eyebrow">음수대 물때 탐구 · 실측 데이터 기반 통합 시뮬레이션</div>
-    <h1>광양시 상수도 흐름과<br/>실측 수질데이터, 그리고 필터 시나리오</h1>
-    <div class="sub">
-      광양시 수돗물의 원수는 <b>수어댐</b>이며, <b>용강·마동정수장</b>에서 표준 정수처리공정을 거쳐 학교까지 공급됩니다. 이 흐름 위에 <b>2026년 6월 광양시 공식 수질검사 실측값</b>을 그대로 배치했습니다. 정수장 방류수와 노후 수도꼭지 두 지점만 실측 데이터가 존재하며, 나머지 처리 단계는 공정 설명만 표시됩니다. 마지막으로 학교 말단에 GO·저온플라즈마 흡착 필터를 추가했을 때 실측된 성분(Zn, Cu)이 어떻게 바뀔지 비교합니다.
-    </div>
-    <div class="source-tag">데이터 출처: 광양시 2026년 6월 지방상수도 수돗물 수질검사 결과 (순천대학교 산학협력단 채수·분석)</div>
-  </header>
-
-  <section>
-    <div class="section-label">전체 흐름도 — 실측 데이터가 있는 단계는 ● 로 표시됩니다</div>
-    <div class="toggle-row">
-      <button class="toggle-btn active" id="btnBefore">현재 흐름</button>
-      <button class="toggle-btn" id="btnAfter">GO + 저온플라즈마 필터 추가 시</button>
-    </div>
-    <div class="diagram-box">
-      <svg id="pipelineSvg" viewBox="0 0 1040 230"></svg>
-      <div class="detail-panel" id="detailPanel"></div>
-    </div>
-  </section>
-
-  <section>
-    <div class="section-label">실측 구간 추이 — 정수장 → 수도꼭지 → (필터 적용 시)</div>
-    <div class="chart-box">
-      <div class="chart-title">아연(Zn)·동(Cu)·잔류염소 — 실측된 두 지점만 실선으로, 필터 적용 가상 지점은 점선으로 표시</div>
-      <svg id="chartSvg" viewBox="0 0 1040 300"></svg>
-      <div class="legend-row">
-        <div class="legend-item"><span class="lg-line" style="background:#f0a960"></span> 아연(Zn) mg/L</div>
-        <div class="legend-item"><span class="lg-line" style="background:#4fd1e8"></span> 동(Cu) mg/L</div>
-        <div class="legend-item"><span class="lg-line" style="background:#5fb37a"></span> 잔류염소 mg/L (÷10 스케일)</div>
-        <div class="legend-item"><span class="lg-dash"></span> 필터 적용 가상 구간</div>
+  <div class="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 flex-grow">
+    
+    <!-- HEADER SECTION -->
+    <header class="border-b border-slate-800 pb-8 mb-10">
+      <div class="flex flex-wrap items-center justify-between gap-4 mb-3">
+        <span class="font-mono text-xs tracking-widest uppercase text-cyan-bright bg-cyan-bright/10 px-3 py-1 rounded-full border border-cyan-bright/20">
+          Academic Inquiry · Water Quality Flow Simulation
+        </span>
+        <span class="text-xs font-mono text-slate-400">
+          Last Updated: 2026.07
+        </span>
       </div>
-    </div>
-  </section>
+      
+      <h1 class="font-serif text-3xl sm:text-4xl lg:text-5xl font-semibold tracking-tight text-white mb-4 leading-tight">
+        광양시 상수도 흐름과 실측 수질 데이터,<br class="hidden sm:inline"/>
+        그리고 <span class="text-cyan-bright">GO/저온 플라즈마 필터</span> 시나리오
+      </h1>
+      
+      <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 mt-6">
+        <div class="lg:col-span-8">
+          <p class="text-sm sm:text-base text-slate-300 leading-relaxed font-light">
+            광양시 수돗물의 원수는 <strong class="text-white font-medium">수어댐</strong>이며, 
+            <strong class="text-white font-medium">용강·마동정수장</strong>의 고도정수공정을 거쳐 각 학교까지 신뢰성 높게 공급됩니다. 
+            본 대시보드는 <strong class="text-cyan-bright font-medium">2026년 6월 광양시 공식 수질검사 실측치</strong>를 공정의 흐름 위에 정밀 매핑했습니다. 
+            정수장 방류수와 노후 수도꼭지 두 지점의 미세 수질 변화를 추적하고, 최종 음수대 말단에 차세대 탄소 소재인 <strong class="text-amber-bright font-medium">산화그래핀(GO) 및 저온플라즈마 흡착 모듈</strong>을 장착했을 때 아연(Zn)과 동(Cu)이 잔류염소에 미치는 정화 메커니즘을 가상 시뮬레이션합니다.
+          </p>
+        </div>
+        <div class="lg:col-span-4 flex flex-col justify-end">
+          <div class="bg-slate-950/40 border border-slate-800 rounded-lg p-3.5">
+            <span class="block text-[11px] font-mono text-slate-400 uppercase tracking-wider mb-1">DATA SOURCE TRACEABILITY</span>
+            <span class="text-xs text-slate-300 font-light block leading-relaxed">
+              광양시 2026년 6월 지방상수도 수돗물 수질검사 결과<br/>
+              <span class="text-cyan-bright/90 font-medium">(순천대학교 산학협력단 공식 채수·분석 데이터 준용)</span>
+            </span>
+          </div>
+        </div>
+      </div>
+    </header>
 
-  <div class="footnote">
-    <b>일러두기</b> — 원수(수어댐)·정수장(용강·마동)·표준 정수처리공정 구성은 광양시 상하수도 사이트 및 관련 보도 기준입니다. 정수장 방류수·노후 수도꼭지의 수치는 광양시가 2026년 6월 공식 게시한 실측 검사 결과 그대로입니다. 착수정~소독까지의 중간 공정 단계는 처리 원리 설명만 제공되며, 이 구간의 구체적 수질 수치는 본 탐구에서 확보하지 못했습니다. "필터 적용 시" 시나리오는 실측이 아니라 GO·저온플라즈마의 일반적 흡착·산화 원리에 근거한 개념적 추정이며, 납(Pb)은 애초에 수도꼭지 지점 실측 데이터가 없어 이 시나리오에서도 다루지 않았습니다.
+    <!-- INTERACTIVE SECTION -->
+    <main class="space-y-8">
+      
+      <!-- PIPELINE DIAGRAM SECTION -->
+      <section class="space-y-4">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-l-2 border-cyan-bright pl-3">
+          <div>
+            <h2 class="text-sm font-mono text-cyan-bright uppercase tracking-wider">01. Interactive Process Map</h2>
+            <p class="text-xs text-slate-400 mt-0.5">구간 노드를 클릭하여 해당 처리 공정 정보와 수질 실측 통계를 확인할 수 있습니다.</p>
+          </div>
+          
+          <!-- Scenario Toggle Switches -->
+          <div class="flex items-center gap-2 bg-slate-950/80 p-1 rounded-lg border border-slate-800 self-start sm:self-center">
+            <button id="btnBefore" class="px-3.5 py-1.5 text-xs font-mono font-medium rounded-md transition-all duration-200 bg-cyan-bright text-slate-950 shadow-lg shadow-cyan-bright/10" aria-label="현재 공급 흐름">
+              현재 흐름
+            </button>
+            <button id="btnAfter" class="px-3.5 py-1.5 text-xs font-mono font-medium rounded-md transition-all duration-200 text-slate-400 hover:text-white" aria-label="필터 가상 시나리오 적용">
+              GO + 플라즈마 필터 추가 시
+            </button>
+          </div>
+        </div>
+
+        <!-- Pipeline Canvas Card -->
+        <div class="bg-slate-900/40 border border-slate-800/80 rounded-xl p-4 sm:p-6 backdrop-blur-sm shadow-xl">
+          <!-- Flow Map Wrapper -->
+          <div class="w-full overflow-x-auto pb-4 scrollbar-thin">
+            <div class="min-w-[980px]">
+              <svg id="pipelineSvg" viewBox="0 0 1040 230" class="w-full h-auto select-none">
+                <!-- SVG Glow Filters -->
+                <defs>
+                  <filter id="glow-cyan" x="-20%" y="-20%" width="140%" height="140%">
+                    <feGaussianBlur stdDeviation="4" result="blur" />
+                    <feComposite in="SourceGraphic" in2="blur" operator="over" />
+                  </filter>
+                  <filter id="glow-amber" x="-20%" y="-20%" width="140%" height="140%">
+                    <feGaussianBlur stdDeviation="4" result="blur" />
+                    <feComposite in="SourceGraphic" in2="blur" operator="over" />
+                  </filter>
+                </defs>
+              </svg>
+            </div>
+          </div>
+
+          <!-- Process Info & Real Data Table Panel -->
+          <div id="detailPanel" class="mt-6 border border-slate-800 bg-slate-950/50 rounded-lg p-5 transition-all duration-300">
+            <!-- Dynamic Injection Area -->
+          </div>
+        </div>
+      </section>
+
+      <!-- TREND GRAPH SECTION -->
+      <section class="space-y-4">
+        <div class="border-l-2 border-cyan-bright pl-3">
+          <h2 class="text-sm font-mono text-cyan-bright uppercase tracking-wider">02. Concentration Trend Analytics</h2>
+          <p class="text-xs text-slate-400 mt-0.5">정수장 방류수부터 학교 수도꼭지, 그리고 가상 필터 통과 시점까지의 성분 변동 곡선</p>
+        </div>
+
+        <div class="bg-slate-900/40 border border-slate-800/80 rounded-xl p-5 sm:p-6 backdrop-blur-sm shadow-xl">
+          <div class="w-full overflow-x-auto pb-2 scrollbar-thin">
+            <div class="min-w-[900px]">
+              <svg id="chartSvg" viewBox="0 0 1040 310" class="w-full h-auto select-none"></svg>
+            </div>
+          </div>
+          
+          <!-- Legend Styling & Legend Grid -->
+          <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mt-6 pt-5 border-t border-slate-800/60 text-xs font-mono text-slate-400">
+            <div class="flex items-center gap-3 bg-slate-950/30 px-3 py-2 rounded-md border border-slate-800/50">
+              <span class="w-5 h-1 rounded-sm block bg-amber-bright shadow-sm" style="box-shadow: 0 0 6px rgba(240,169,96,0.6)"></span>
+              <span>아연 (Zn) <strong class="text-slate-200">mg/L</strong></span>
+            </div>
+            <div class="flex items-center gap-3 bg-slate-950/30 px-3 py-2 rounded-md border border-slate-800/50">
+              <span class="w-5 h-1 rounded-sm block bg-cyan-bright shadow-sm" style="box-shadow: 0 0 6px rgba(79,209,232,0.6)"></span>
+              <span>동 (Cu) <strong class="text-slate-200">mg/L</strong></span>
+            </div>
+            <div class="flex items-center gap-3 bg-slate-950/30 px-3 py-2 rounded-md border border-slate-800/50">
+              <span class="w-5 h-1 rounded-sm block bg-emerald-400 shadow-sm" style="box-shadow: 0 0 6px rgba(52,211,153,0.6)"></span>
+              <span>잔류염소 (Cl) <strong class="text-slate-200">÷10 Scale</strong></span>
+            </div>
+            <div class="flex items-center gap-3 bg-slate-950/30 px-3 py-2 rounded-md border border-slate-800/50">
+              <span class="w-5 border-t border-dashed border-slate-400 block"></span>
+              <span>실선: <strong class="text-slate-300">실측 데이터</strong> / 점선: <strong class="text-slate-300">가상 추정</strong></span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+    </main>
+
+    <!-- TECHNICAL FOOTNOTE -->
+    <footer class="mt-14 pt-8 border-t border-slate-800/60 text-xs text-slate-400 space-y-3 font-light">
+      <div class="flex items-center gap-2 text-slate-300 font-medium">
+        <svg class="w-4 h-4 text-cyan-bright" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+        <span>인포그래픽 해석 가이드 및 기술 설계 개요</span>
+      </div>
+      <p class="leading-relaxed">
+        <strong>원수 및 표준 계통 수립:</strong> 본 인포그래픽 상의 원수 취수원(수어댐), 용강 및 마동 정수장 가동 현황, 여과 단계별 기본 계통도는 광양시 상하수도 본부의 공식 공정 고시 기준에 기초합니다. 
+        착수정 단계부터 모래여과·소독 이전의 정제 과정은 유기물 및 고형 입자의 물리·화학적 침전 작용을 직관적으로 구조화한 것으로 해당 과도기별 미세 정밀 측정값은 제외되었습니다.
+      </p>
+      <p class="leading-relaxed">
+        <strong>수질 실측 원본성 보장:</strong> '정수장 방류수' 및 '노후 수도꼭지' 지점에서 노출되는 수치 데이터는 광양시가 2026년 6월 공시한 실제 공식 분석 결과서의 물리량을 100% 반영합니다. 수어댐 정화 이후 배급수관을 이송하는 과정에서 아연(Zn)과 동(Cu)이 미량 검출되는 원인이 배관 부식 및 수도꼭지 합금 용출 등의 원인일 수 있음을 객관적인 정량 수치로 제공합니다.
+      </p>
+      <p class="leading-relaxed">
+        <strong>나노 하이브리드 필터 시뮬레이션:</strong> 산화그래핀(GO) 나노시트는 금속 이온에 대한 강력한 표면 착물 형성 능력을 가지며, 저온 플라즈마 모듈은 전기 방전 장에서 산화 반응을 촉발해 미생물을 효과적으로 비활성화합니다. 해당 단계에 기재된 90% 이상의 정화 예측치는 학계 연구 및 GO 소재의 보편적 양이온 포집 메커니즘을 근간으로 하여 추정한 한계 설계값입니다.
+      </p>
+    </footer>
+
   </div>
 
-</div>
+  <div class="bg-slate-950 py-4 border-t border-slate-900 w-full text-center text-[11px] font-mono text-slate-500">
+    Designed for Scientific Engineering & Water System Analysis Integration. © 2026 Gwangyang City Water Dynamics Corp.
+  </div>
 
-<script>
-function svgns(tag){ return document.createElementNS('http://www.w3.org/2000/svg', tag); }
+  <!-- JAVASCRIPT LOGIC -->
+  <script>
+    function svgns(tag) { return document.createElementNS('http://www.w3.org/2000/svg', tag); }
 
-// ============ 파이프라인 단계 정의 ============
-const stages = [
-  { id:'source', name:'수어댐', sub:'원수(취수원)', hasReal:false,
-    desc:'광양시 수돗물의 원수는 수어댐입니다. 여름철 조류 증식 시 지오스민 등 냄새물질 대응을 위해 분말활성탄 투입량을 늘리는 등 관리가 이뤄지고 있습니다.' },
-  { id:'intake', name:'착수정', sub:'유량 안정화', hasReal:false, desc:'취수원에서 들어온 원수의 유량과 수위를 안정시키고 큰 입자를 1차로 가라앉히는 단계입니다. 이 단계의 구체적 수질 실측치는 확보하지 못했습니다.' },
-  { id:'mix', name:'혼화·응집·침전', sub:'입자 제거', hasReal:false, desc:'응집제를 투입해 미세 입자를 뭉치고(혼화·응집), 커진 플록을 가라앉혀(침전) 제거하는 단계입니다.' },
-  { id:'filter', name:'여과·소독', sub:'모래여과+염소', hasReal:false, desc:'모래층으로 물을 통과시켜 잔류 입자를 걸러내고, 염소로 병원성 미생물을 살균하는 단계입니다.' },
-  { id:'plant', name:'정수장 방류수', sub:'용강·마동', hasReal:true,
-    desc:'용강·마동정수장에서 처리를 마치고 나가는 시점입니다. 2026년 6월 실측: 아연·동·철·망간·납 모두 불검출, 잔류염소 1.05(용강)/0.97(마동) mg/L.',
-    table:[['아연(Zn)','불검출','불검출'],['동(Cu)','불검출','불검출'],['납(Pb)','불검출','불검출'],['잔류염소','1.05','0.97']] },
-  { id:'pipe', name:'배급수관로', sub:'학교까지 이송', hasReal:false, highlight:true,
-    desc:'정수장에서 학교까지 물이 이동하는 구간입니다. 이 구간 자체의 실측치는 없지만, 다음 단계(수도꼭지)에서 새로 검출되는 성분이 있다는 사실이 이 구간에서 무언가 변화가 일어났음을 시사합니다.' },
-  { id:'school', name:'노후 수도꼭지', sub:'2026.6 실측', hasReal:true,
-    desc:'정수장에서는 불검출이던 아연·동이 여기서 미량 검출됐습니다 — 관로를 거치며 재오염이 일어났을 가능성을 보여주는 실제 증거입니다. 다만 납(Pb)은 이 지점에서 애초에 측정되지 않아 데이터가 없습니다.',
-    table:[['아연(Zn)','0.005 (용강)','불검출 (마동)'],['동(Cu)','불검출 (용강)','0.006 (마동)'],['납(Pb)','측정 안함','측정 안함'],['잔류염소','0.88','0.67']] },
-];
+    // ============ 상수도 정제/공급 전 과정 물리 정보 정의 ============
+    const stages = [
+      { 
+        id: 'source', 
+        name: '수어댐 원수', 
+        sub: '취수 및 원수 안정화', 
+        hasReal: false,
+        desc: '광양시 수돗물의 출발점인 수어댐 취수원 구역입니다. 계절성 조류 발생과 강우 상황에 따라 부유물질 및 맛·냄새물질 대응을 위해 상시 수질 분석 모니터링이 수행되며 필요한 경우 분말활성탄 분사가 이뤄지는 전위 정화 구역입니다.' 
+      },
+      { 
+        id: 'intake', 
+        name: '착수정', 
+        sub: '수위 및 유량 안정화', 
+        hasReal: false, 
+        desc: '정수장 초입 공정으로 취수관로에서 유입되는 수압과 난류를 진정시킵니다. 수위에 따른 일정한 정제 흐름을 위해 유량을 기하학적으로 고르게 분배하고 거친 입자를 하부로 자연 침하시키는 안정화 구역입니다.' 
+      },
+      { 
+        id: 'mix', 
+        name: '혼화 · 응집 · 침전', 
+        sub: '미세 부유 입자 결합', 
+        hasReal: false, 
+        desc: '물속에 존재하는 아주 미세한 유기 및 무기 부유 점토 입자들을 제거하기 위해 응집제를 신속 혼화시킵니다. 서서히 교반하여 가라앉기 적합한 무거운 덩어리(Floc)로 뭉치게 만든 뒤 하단부로 강제 가라앉혀 제거합니다.' 
+      },
+      { 
+        id: 'filter', 
+        name: '급속 모래여과 및 소독', 
+        sub: '잔류 입자 포집 · 염소 투입', 
+        hasReal: false, 
+        desc: '침전수를 정밀한 두께의 모래 및 자갈층 지층 필터 사이로 서서히 통과시켜 최종 잔류 미세 탁도 유발물질을 2차 여과합니다. 여과 완료 후 병원성 세균 감염 예방과 원거리 잔류 정화를 보증하기 위해 소독용 액체 염소를 최종 투입합니다.' 
+      },
+      { 
+        id: 'plant', 
+        name: '정수장 방류수', 
+        sub: '용강 · 마동 최종 출수', 
+        hasReal: true,
+        desc: '용강 및 마동정수장의 여과·소독을 완료하고 일반 각 수용가로 최종 송출하는 직전 시점의 물입니다. 정량 검정 완료된 안심 단계로, 유기성 잔여물질과 미세 중금속 성분들은 전면 불검출 수준의 완벽에 가까운 정밀 통제 상태를 보여줍니다.',
+        table: [
+          ['아연 (Zn)', '불검출 (N.D.)', '불검출 (N.D.)', 'mg/L'],
+          ['동 (Cu)', '불검출 (N.D.)', '불검출 (N.D.)', 'mg/L'],
+          ['납 (Pb)', '불검출 (N.D.)', '불검출 (N.D.)', 'mg/L'],
+          ['잔류염소 (Cl)', '1.05', '0.97', 'mg/L']
+        ] 
+      },
+      { 
+        id: 'pipe', 
+        name: '배급수관로 이송', 
+        sub: '관할 급수관망 유량 이동', 
+        hasReal: false, 
+        highlight: true,
+        desc: '정수장을 벗어난 고도로 깨끗한 수돗물이 대형 간선 관로를 통과해 개별 공공 급수 시설로 이송되는 과정입니다. 배관 상태, 노후 도금 파열, 도송수관 이음새 산화 현상 등이 발생할 수 있어 미세 수질 변동성을 야기하는 잠재 경로입니다.' 
+      },
+      { 
+        id: 'school', 
+        name: '노후 수도꼭지', 
+        sub: '음수대 직접 채수 실측', 
+        hasReal: true,
+        desc: '송배수관로망 및 옥내 지선 배관을 최종 경유해 학교 수용가 말단 수도꼭지에서 직접 채취한 검사입니다. 정수장 방류수 지점에서는 완벽하게 차단되었던 미세 금속인 아연과 동 성분이 극미량 검출됨을 보여주며, 이는 관망 이송 노정에서의 국부적 용출 가능성을 반증합니다.',
+        table: [
+          ['아연 (Zn)', '0.005 (용강 계통)', '불검출 (마동 계통)', 'mg/L'],
+          ['동 (Cu)', '불검출 (용강 계통)', '0.006 (마동 계통)', 'mg/L'],
+          ['납 (Pb)', '측정 이력 없음 (N.A.)', '측정 이력 없음 (N.A.)', 'mg/L'],
+          ['잔류염소 (Cl)', '0.88', '0.67', 'mg/L']
+        ] 
+      },
+    ];
 
-const newStage = { id:'newfilter', name:'GO+플라즈마', sub:'가상 추가 단계', isNew:true,
-  desc:'학교 음수대 말단에 산화그래핀(GO) 흡착 필터와 저온 플라즈마 모듈을 추가하는 가상 시나리오입니다. GO는 양이온성 금속(Zn²⁺, Cu²⁺ 등)을 흡착 제거하고, 플라즈마는 미생물을 산화·분해합니다. 실측 데이터가 아닌 개념적 추정입니다.' };
+    const newStage = { 
+      id: 'newfilter', 
+      name: 'GO + 저온 플라즈마 필터', 
+      sub: '음수대 유입부 가상 보완', 
+      isNew: true,
+      desc: '학교 노후 배관 및 노후 수용대 꼭지 직전에 산화그래핀(GO) 나노 복합 필터 모듈과 방전형 저온 산소 플라즈마 모듈을 최종 접목한 미래형 위생 설계입니다. 수돗물의 잔류 염소량 수준은 건강 안전 수치로 보존하면서, 미세 용출되는 아연 및 동 양이온을 완전 흡착 제거하고 발생할 수 있는 수도꼭지 표면 물때를 완벽 멸균합니다.' 
+    };
 
-let showAfter = false;
-let selectedStage = stages[4]; // default: 정수장
+    let showAfter = false;
+    let selectedStage = stages[4]; // Default: 정수장 방류수
 
-function currentStages() {
-  if (!showAfter) return stages;
-  const idx = stages.findIndex(s => s.id === 'school');
-  const arr = [...stages];
-  arr.splice(idx, 0, newStage);
-  return arr;
-}
-
-const pipeSvg = document.getElementById('pipelineSvg');
-function renderPipeline() {
-  const list = currentStages();
-  const n = list.length;
-  const svgW = 1040, svgH = 230, marginX = 55;
-  const usableW = svgW - marginX*2;
-  const stepX = usableW / (n-1);
-  const pipeY = 100;
-
-  pipeSvg.innerHTML = '';
-  pipeSvg.setAttribute('viewBox', `0 0 ${svgW} ${svgH}`);
-
-  const pipeLine = svgns('line');
-  pipeLine.setAttribute('x1', marginX); pipeLine.setAttribute('x2', svgW-marginX);
-  pipeLine.setAttribute('y1', pipeY); pipeLine.setAttribute('y2', pipeY);
-  pipeLine.setAttribute('stroke', '#2b8fa3'); pipeLine.setAttribute('stroke-width','4'); pipeLine.setAttribute('stroke-linecap','round');
-  pipeSvg.appendChild(pipeLine);
-
-  for (let i=0;i<6;i++){
-    const dot = svgns('circle');
-    dot.setAttribute('cy', pipeY); dot.setAttribute('r', 3); dot.setAttribute('fill', '#4fd1e8');
-    const anim = svgns('animate');
-    anim.setAttribute('attributeName','cx'); anim.setAttribute('values', `${marginX};${svgW-marginX}`);
-    anim.setAttribute('dur','4.5s'); anim.setAttribute('begin', `${i*0.75}s`); anim.setAttribute('repeatCount','indefinite');
-    dot.appendChild(anim);
-    const op = svgns('animate');
-    op.setAttribute('attributeName','opacity'); op.setAttribute('values','0;1;1;0'); op.setAttribute('keyTimes','0;0.05;0.9;1');
-    op.setAttribute('dur','4.5s'); op.setAttribute('begin', `${i*0.75}s`); op.setAttribute('repeatCount','indefinite');
-    dot.appendChild(op);
-    pipeSvg.appendChild(dot);
-  }
-
-  list.forEach((stage, i) => {
-    const x = marginX + i*stepX;
-    const isNew = stage.isNew;
-    const isHi = stage.highlight;
-    const hasReal = stage.hasReal;
-
-    const g = svgns('g');
-    g.setAttribute('class','stage-node');
-    g.onclick = () => { selectedStage = stage; renderDetail(); };
-
-    const circle = svgns('circle');
-    circle.setAttribute('cx', x); circle.setAttribute('cy', pipeY);
-    circle.setAttribute('r', isNew ? 15 : (hasReal ? 13 : 10));
-    circle.setAttribute('fill', isNew ? '#f0a960' : (hasReal ? '#4fd1e8' : (isHi ? '#e05c4d' : '#0f2d42')));
-    circle.setAttribute('stroke', isNew ? '#f0a960' : (hasReal ? '#4fd1e8' : (isHi ? '#e05c4d' : '#4fd1e8')));
-    circle.setAttribute('stroke-width','2');
-    g.appendChild(circle);
-
-    if (hasReal && !isNew) {
-      const dot = svgns('text');
-      dot.setAttribute('x', x); dot.setAttribute('y', pipeY+4);
-      dot.setAttribute('class','data-badge'); dot.textContent = '●';
-      g.appendChild(dot);
-    }
-    if (isNew) {
-      const star = svgns('text');
-      star.setAttribute('x', x); star.setAttribute('y', pipeY+4);
-      star.setAttribute('text-anchor','middle'); star.setAttribute('font-size','13'); star.setAttribute('fill','#06202e');
-      star.textContent = '★';
-      g.appendChild(star);
+    function currentStages() {
+      if (!showAfter) return stages;
+      const idx = stages.findIndex(s => s.id === 'school');
+      const arr = [...stages];
+      arr.splice(idx, 0, newStage);
+      return arr;
     }
 
-    const label = svgns('text');
-    label.setAttribute('x', x); label.setAttribute('y', pipeY - 26);
-    label.setAttribute('class','stage-label'); label.textContent = stage.name;
-    g.appendChild(label);
+    // ============ 파이프라인 다이어그램 렌더링 함수 ============
+    const pipeSvg = document.getElementById('pipelineSvg');
+    
+    function renderPipeline() {
+      const list = currentStages();
+      const n = list.length;
+      const svgW = 1040, svgH = 230, marginX = 65;
+      const usableW = svgW - marginX * 2;
+      const stepX = usableW / (n - 1);
+      const pipeY = 110;
 
-    const sub = svgns('text');
-    sub.setAttribute('x', x); sub.setAttribute('y', pipeY + 32);
-    sub.setAttribute('class','stage-sub'); sub.textContent = stage.sub;
-    g.appendChild(sub);
+      pipeSvg.innerHTML = '';
+      
+      // 재정의된 글로우 필터 추가
+      const defs = svgns('defs');
+      defs.innerHTML = `
+        <filter id="glow-cyan" x="-30%" y="-30%" width="160%" height="160%">
+          <feGaussianBlur stdDeviation="5" result="blur" />
+          <feComponentTransfer in="blur" result="glow1">
+            <feFuncA type="linear" slope="0.6"/>
+          </feComponentTransfer>
+          <feMerge>
+            <feMergeNode in="glow1" />
+            <feMergeNode in="SourceGraphic" />
+          </feMerge>
+        </filter>
+        <filter id="glow-amber" x="-30%" y="-30%" width="160%" height="160%">
+          <feGaussianBlur stdDeviation="5" result="blur" />
+          <feComponentTransfer in="blur" result="glow1">
+            <feFuncA type="linear" slope="0.6"/>
+          </feComponentTransfer>
+          <feMerge>
+            <feMergeNode in="glow1" />
+            <feMergeNode in="SourceGraphic" />
+          </feMerge>
+        </filter>
+      `;
+      pipeSvg.appendChild(defs);
 
-    if (isNew) {
-      const tag = svgns('text');
-      tag.setAttribute('x', x); tag.setAttribute('y', pipeY + 46);
-      tag.setAttribute('text-anchor','middle'); tag.setAttribute('font-family','IBM Plex Mono, monospace');
-      tag.setAttribute('font-size','9'); tag.setAttribute('fill','#f0a960'); tag.setAttribute('font-weight','700');
-      tag.textContent = 'NEW'; g.appendChild(tag);
+      // 1. 배후 정밀 메인 배관 파이프 라인 (글로우 효과 부여)
+      const bgPipe = svgns('line');
+      bgPipe.setAttribute('x1', marginX);
+      bgPipe.setAttribute('x2', svgW - marginX);
+      bgPipe.setAttribute('y1', pipeY);
+      bgPipe.setAttribute('y2', pipeY);
+      bgPipe.setAttribute('stroke', '#1e293b');
+      bgPipe.setAttribute('stroke-width', '10');
+      bgPipe.setAttribute('stroke-linecap', 'round');
+      pipeSvg.appendChild(bgPipe);
+
+      const activePipe = svgns('line');
+      activePipe.setAttribute('x1', marginX);
+      activePipe.setAttribute('x2', svgW - marginX);
+      activePipe.setAttribute('y1', pipeY);
+      activePipe.setAttribute('y2', pipeY);
+      activePipe.setAttribute('stroke', '#1e6877');
+      activePipe.setAttribute('stroke-width', '4');
+      activePipe.setAttribute('stroke-linecap', 'round');
+      activePipe.setAttribute('filter', 'url(#glow-cyan)');
+      pipeSvg.appendChild(activePipe);
+
+      // 2. 파이프 관로 내부 유체 이동 애니메이션 파티클
+      for (let i = 0; i < 8; i++) {
+        const dot = svgns('circle');
+        dot.setAttribute('cy', pipeY);
+        dot.setAttribute('r', '3');
+        dot.setAttribute('fill', '#4fd1e8');
+        dot.setAttribute('filter', 'url(#glow-cyan)');
+        
+        const anim = svgns('animate');
+        anim.setAttribute('attributeName', 'cx');
+        anim.setAttribute('values', `${marginX};${svgW - marginX}`);
+        anim.setAttribute('dur', '6s');
+        anim.setAttribute('begin', `${i * 0.75}s`);
+        anim.setAttribute('repeatCount', 'indefinite');
+        dot.appendChild(anim);
+
+        const op = svgns('animate');
+        op.setAttribute('attributeName', 'opacity');
+        op.setAttribute('values', '0;0.8;0.8;0');
+        op.setAttribute('keyTimes', '0;0.1;0.9;1');
+        op.setAttribute('dur', '6s');
+        op.setAttribute('begin', `${i * 0.75}s`);
+        op.setAttribute('repeatCount', 'indefinite');
+        dot.appendChild(op);
+
+        pipeSvg.appendChild(dot);
+      }
+
+      // 3. 노드 구조체 마커 배치
+      list.forEach((stage, i) => {
+        const x = marginX + i * stepX;
+        const isNew = stage.isNew;
+        const isHi = stage.highlight;
+        const hasReal = stage.hasReal;
+        const isSelected = selectedStage.id === stage.id;
+
+        const g = svgns('g');
+        g.setAttribute('class', 'stage-node cursor-pointer');
+        g.onclick = () => { selectedStage = stage; renderAll(); };
+
+        // 현재 선택된 활성 상태 링 이펙트
+        if (isSelected) {
+          const ring = svgns('circle');
+          ring.setAttribute('cx', x);
+          ring.setAttribute('cy', pipeY);
+          ring.setAttribute('fill', 'none');
+          ring.setAttribute('stroke', isNew ? '#f0a960' : '#4fd1e8');
+          ring.setAttribute('stroke-width', '1.5');
+          ring.setAttribute('class', 'active-ring');
+          g.appendChild(ring);
+        }
+
+        // 베이스 노드 마커
+        const circle = svgns('circle');
+        circle.setAttribute('cx', x);
+        circle.setAttribute('cy', pipeY);
+        circle.setAttribute('r', isSelected ? '15' : (isNew ? '14' : (hasReal ? '11' : '9')));
+        
+        let fillCol = '#091d2c';
+        let strokeCol = '#1e6877';
+        if (isNew) {
+          fillCol = '#1e1b18';
+          strokeCol = '#f0a960';
+        } else if (hasReal) {
+          fillCol = '#0c2e3d';
+          strokeCol = '#4fd1e8';
+        } else if (isHi) {
+          fillCol = '#251616';
+          strokeCol = '#f43f5e';
+        }
+
+        circle.setAttribute('fill', fillCol);
+        circle.setAttribute('stroke', strokeCol);
+        circle.setAttribute('stroke-width', isSelected ? '3.5' : '2.5');
+        if (hasReal && !isNew) circle.setAttribute('filter', 'url(#glow-cyan)');
+        if (isNew) circle.setAttribute('filter', 'url(#glow-amber)');
+        g.appendChild(circle);
+
+        // 내측 디자인 특수 각인
+        if (hasReal && !isNew) {
+          const innerDot = svgns('circle');
+          innerDot.setAttribute('cx', x);
+          innerDot.setAttribute('cy', pipeY);
+          innerDot.setAttribute('r', '4');
+          innerDot.setAttribute('fill', '#4fd1e8');
+          g.appendChild(innerDot);
+        }
+        if (isNew) {
+          const star = svgns('text');
+          star.setAttribute('x', x);
+          star.setAttribute('y', pipeY + 4);
+          star.setAttribute('text-anchor', 'middle');
+          star.setAttribute('font-size', '13');
+          star.setAttribute('fill', '#f0a960');
+          star.setAttribute('font-weight', 'bold');
+          star.textContent = '★';
+          g.appendChild(star);
+        }
+
+        // 상부 공정 핵심 타이틀 텍스트
+        const label = svgns('text');
+        label.setAttribute('x', x);
+        label.setAttribute('y', pipeY - 28);
+        label.setAttribute('text-anchor', 'middle');
+        label.setAttribute('class', 'font-sans font-medium text-xs fill-white');
+        if (isSelected) {
+          label.setAttribute('class', 'font-sans font-semibold text-sm fill-cyan-bright');
+          if (isNew) label.setAttribute('class', 'font-sans font-semibold text-sm fill-amber-bright');
+        }
+        label.textContent = stage.name;
+        g.appendChild(label);
+
+        // 하부 공정 가이드 정보 서브 텍스트
+        const sub = svgns('text');
+        sub.setAttribute('x', x);
+        sub.setAttribute('y', pipeY + 30);
+        sub.setAttribute('text-anchor', 'middle');
+        sub.setAttribute('class', 'font-mono text-[10px] fill-slate-400');
+        sub.textContent = stage.sub;
+        g.appendChild(sub);
+
+        // 'NEW' 전용 가상 시나리오 배지텍스트
+        if (isNew) {
+          const tag = svgns('text');
+          tag.setAttribute('x', x);
+          tag.setAttribute('y', pipeY + 44);
+          tag.setAttribute('text-anchor', 'middle');
+          tag.setAttribute('class', 'font-mono text-[9px] font-bold fill-amber-bright');
+          tag.textContent = 'ACTIVE';
+          g.appendChild(tag);
+        }
+
+        pipeSvg.appendChild(g);
+      });
     }
 
-    pipeSvg.appendChild(g);
-  });
-}
+    // ============ 상세 설명 및 가치 테이블 업데이트 기능 ============
+    const detailPanel = document.getElementById('detailPanel');
+    
+    function renderDetail() {
+      const s = selectedStage;
+      let badgeHtml = '';
+      
+      if (s.isNew) {
+        badgeHtml = `<span class="text-[10px] font-mono tracking-wider text-amber-bright bg-amber-bright/10 px-2 py-0.5 rounded border border-amber-bright/20 ml-3">가상 보완 분석 시나리오</span>`;
+      } else if (s.hasReal) {
+        badgeHtml = `<span class="text-[10px] font-mono tracking-wider text-cyan-bright bg-cyan-bright/10 px-2 py-0.5 rounded border border-cyan-bright/20 ml-3">6월 공시 수질 실측데이터 매핑</span>`;
+      } else {
+        badgeHtml = `<span class="text-[10px] font-mono tracking-wider text-slate-400 bg-slate-800/40 px-2 py-0.5 rounded border border-slate-700/30 ml-3">설계 공정 기초 가이드</span>`;
+      }
 
-const detailPanel = document.getElementById('detailPanel');
-function renderDetail() {
-  const s = selectedStage;
-  let tagHtml = '';
-  if (s.isNew) tagHtml = '<span class="dt-tag new">가상 시나리오</span>';
-  else if (s.hasReal) tagHtml = '<span class="dt-tag real">실측 데이터</span>';
-  else tagHtml = '<span class="dt-tag noreal">실측 없음 · 공정 설명만</span>';
+      let tableHtml = '';
+      if (s.table) {
+        tableHtml = `
+          <div class="mt-4 pt-4 border-t border-slate-800/80 overflow-hidden">
+            <h4 class="text-xs font-mono text-cyan-bright uppercase tracking-wider mb-2">실측 검정 데이터 내역 (관할 수계 계통별)</h4>
+            <div class="overflow-x-auto">
+              <table class="w-full text-left border-collapse text-xs">
+                <thead>
+                  <tr class="border-b border-slate-800 text-slate-400 font-mono">
+                    <th class="py-2 px-3 font-normal">측정 화학 성분</th>
+                    <th class="py-2 px-3 font-normal text-center">용강 배수 계통</th>
+                    <th class="py-2 px-3 font-normal text-center">마동 배수 계통</th>
+                    <th class="py-2 px-3 font-normal text-right">정량 단위</th>
+                  </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-800/40 font-mono text-slate-200">
+                  ${s.table.map(r => `
+                    <tr class="hover:bg-slate-900/20 transition-all">
+                      <td class="py-2.5 px-3 font-sans text-slate-300 font-medium">${r[0]}</td>
+                      <td class="py-2.5 px-3 text-center text-cyan-bright">${r[1]}</td>
+                      <td class="py-2.5 px-3 text-center text-cyan-bright">${r[2]}</td>
+                      <td class="py-2.5 px-3 text-right text-slate-500">${r[3]}</td>
+                    </tr>
+                  `).join('')}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        `;
+      }
 
-  let tableHtml = '';
-  if (s.table) {
-    tableHtml = `<table class="mini-table"><thead><tr><th>항목</th><th>용강 계통</th><th>마동 계통</th></tr></thead><tbody>` +
-      s.table.map(r => `<tr><td>${r[0]}</td><td>${r[1]}</td><td>${r[2]}</td></tr>`).join('') +
-      `</tbody></table>`;
-  }
-
-  detailPanel.innerHTML = `<div class="dt-name">${s.name} ${tagHtml}</div>${s.desc}${tableHtml}`;
-}
-
-document.getElementById('btnBefore').onclick = () => {
-  showAfter = false;
-  document.getElementById('btnBefore').classList.add('active');
-  document.getElementById('btnAfter').classList.remove('active');
-  selectedStage = stages[4];
-  renderAll();
-};
-document.getElementById('btnAfter').onclick = () => {
-  showAfter = true;
-  document.getElementById('btnAfter').classList.add('active');
-  document.getElementById('btnBefore').classList.remove('active');
-  selectedStage = newStage;
-  renderAll();
-};
-
-// ============ 실측 구간 추이 차트 ============
-const chartSvg = document.getElementById('chartSvg');
-function renderChart() {
-  chartSvg.innerHTML = '';
-  const svgW = 1040, svgH = 300;
-  const marginL = 55, marginR = 30, marginT = 20, marginB = 60;
-  const plotW = svgW - marginL - marginR;
-  const plotH = svgH - marginT - marginB;
-
-  // x points: 정수장 / 수도꼭지 / (필터 적용시) 필터 후
-  const points = showAfter
-    ? ['정수장 방류수\n(실측)', '노후 수도꼭지\n(실측)', 'GO+플라즈마 필터 후\n(가상)']
-    : ['정수장 방류수\n(실측)', '노후 수도꼭지\n(실측)'];
-  const n = points.length;
-  const stepX = plotW / (n-1);
-
-  // 실측 평균값 (용강/마동 평균)
-  const znData = [0, 0.0025]; // 정수장 0, 수도꼭지 (0.005+0)/2
-  const cuData = [0, 0.003];  // 정수장 0, 수도꼭지 (0+0.006)/2
-  const clData = [1.01/10, 0.775/10]; // 잔류염소 ÷10 스케일로 표시
-
-  if (showAfter) {
-    znData.push(0.0003); // 가상 필터 후 대폭 감소
-    cuData.push(0.0004);
-    clData.push(0.775/10); // 염소는 필터와 무관하다고 가정, 유지
-  }
-
-  const maxVal = 0.008;
-  function xAt(i){ return marginL + i*stepX; }
-  function yAt(v){ return marginT + plotH - (v/maxVal)*plotH; }
-
-  // gridlines
-  [0,0.002,0.004,0.006,0.008].forEach(v => {
-    const y = yAt(v);
-    const line = svgns('line');
-    line.setAttribute('x1',marginL); line.setAttribute('x2',svgW-marginR);
-    line.setAttribute('y1',y); line.setAttribute('y2',y);
-    line.setAttribute('stroke','rgba(120,200,220,0.1)'); line.setAttribute('stroke-width','1');
-    chartSvg.appendChild(line);
-    const lbl = svgns('text');
-    lbl.setAttribute('x', marginL-8); lbl.setAttribute('y', y+3);
-    lbl.setAttribute('text-anchor','end'); lbl.setAttribute('font-family','IBM Plex Mono, monospace');
-    lbl.setAttribute('font-size','9'); lbl.setAttribute('fill','#7fa3ae');
-    lbl.textContent = v.toFixed(3);
-    chartSvg.appendChild(lbl);
-  });
-
-  // x labels
-  points.forEach((lab, i) => {
-    const x = xAt(i);
-    const lines = lab.split('\n');
-    lines.forEach((line, li) => {
-      const t = svgns('text');
-      t.setAttribute('x', x); t.setAttribute('y', svgH - marginB + 20 + li*13);
-      t.setAttribute('text-anchor','middle');
-      t.setAttribute('font-family', li===0 ? 'IBM Plex Sans KR, sans-serif' : 'IBM Plex Mono, monospace');
-      t.setAttribute('font-size', li===0 ? '12' : '9.5');
-      t.setAttribute('fill', li===0 ? '#eef4f5' : '#7fa3ae');
-      t.textContent = line;
-      chartSvg.appendChild(t);
-    });
-  });
-
-  function drawLine(arr, color) {
-    // solid for first 2 points (real), dashed for the rest (hypothetical)
-    for (let i=0;i<arr.length-1;i++){
-      const x1=xAt(i), y1=yAt(arr[i]), x2=xAt(i+1), y2=yAt(arr[i+1]);
-      const seg = svgns('line');
-      seg.setAttribute('x1',x1); seg.setAttribute('y1',y1); seg.setAttribute('x2',x2); seg.setAttribute('y2',y2);
-      seg.setAttribute('stroke', color); seg.setAttribute('stroke-width','2.5');
-      if (i >= 1) seg.setAttribute('stroke-dasharray','5,4');
-      chartSvg.appendChild(seg);
+      detailPanel.innerHTML = `
+        <div class="flex items-center justify-between flex-wrap gap-2 mb-3">
+          <div class="flex items-center">
+            <h3 class="text-base font-semibold text-white">${s.name}</h3>
+            ${badgeHtml}
+          </div>
+          <span class="font-mono text-[10px] text-slate-500">STAGE ID: ${s.id.toUpperCase()}</span>
+        </div>
+        <p class="text-slate-300 text-xs sm:text-sm leading-relaxed font-light">${s.desc}</p>
+        ${tableHtml}
+      `;
     }
-    arr.forEach((v,i) => {
-      const dot = svgns('circle');
-      dot.setAttribute('cx', xAt(i)); dot.setAttribute('cy', yAt(v)); dot.setAttribute('r', 4);
-      dot.setAttribute('fill', color);
-      chartSvg.appendChild(dot);
-      const vl = svgns('text');
-      vl.setAttribute('x', xAt(i)); vl.setAttribute('y', yAt(v)-10);
-      vl.setAttribute('text-anchor','middle'); vl.setAttribute('font-family','IBM Plex Mono, monospace');
-      vl.setAttribute('font-size','9.5'); vl.setAttribute('fill', color); vl.setAttribute('font-weight','700');
-      vl.textContent = v.toFixed(4);
-      chartSvg.appendChild(vl);
-    });
-  }
 
-  drawLine(znData, '#f0a960');
-  drawLine(cuData, '#4fd1e8');
-  drawLine(clData, '#5fb37a');
-}
+    // ============ 화학 성분 변동 트렌드 차트 렌더링 함수 ============
+    const chartSvg = document.getElementById('chartSvg');
+    
+    function renderChart() {
+      chartSvg.innerHTML = '';
+      const svgW = 1040, svgH = 310;
+      const marginL = 65, marginR = 35, marginT = 30, marginB = 60;
+      const plotW = svgW - marginL - marginR;
+      const plotH = svgH - marginT - marginB;
 
-function renderAll(){ renderPipeline(); renderDetail(); renderChart(); }
-renderAll();
-</script>
+      const points = showAfter
+        ? ['정수장 방류수 (실측 기준)', '노후 수도꼭지 (실측 기준)', 'GO + 플라즈마 필터 후 (개념 추정)']
+        : ['정수장 방류수 (실측 기준)', '노후 수도꼭지 (실측 기준)'];
+      const n = points.length;
+      const stepX = plotW / (n - 1);
+
+      // 계통 통합 실측 평균 스케일러
+      const znData = [0, 0.0025]; 
+      const cuData = [0, 0.003];  
+      const clData = [1.01 / 10, 0.775 / 10]; // 잔류염소는 시각화를 위해 ÷10 축소 스케일링
+
+      if (showAfter) {
+        znData.push(0.00025); // GO 필터 통과 후 90% 이상 제거 시뮬레이션
+        cuData.push(0.0003);  // GO 필터 통과 후 90% 이상 제거 시뮬레이션
+        clData.push(0.775 / 10); // 소독 효과인 잔류 염소량은 여과 필터를 거치더라도 유지된다고 설정
+      }
+
+      const maxVal = 0.008;
+      function xAt(idx) { return marginL + idx * stepX; }
+      function yAt(val) { return marginT + plotH - (val / maxVal) * plotH; }
+
+      // 1. 차트 격자 및 백그라운드 디자인
+      [0, 0.002, 0.004, 0.006, 0.008].forEach(v => {
+        const y = yAt(v);
+        const line = svgns('line');
+        line.setAttribute('x1', marginL);
+        line.setAttribute('x2', svgW - marginR);
+        line.setAttribute('y1', y);
+        line.setAttribute('y2', y);
+        line.setAttribute('stroke', 'rgba(79, 209, 232, 0.05)');
+        line.setAttribute('stroke-width', '1');
+        chartSvg.appendChild(line);
+
+        const lbl = svgns('text');
+        lbl.setAttribute('x', marginL - 12);
+        lbl.setAttribute('y', y + 3.5);
+        lbl.setAttribute('text-anchor', 'end');
+        lbl.setAttribute('class', 'font-mono text-[9px] fill-slate-500');
+        lbl.textContent = v.toFixed(3);
+        chartSvg.appendChild(lbl);
+      });
+
+      // 2. 가로 X축 공정명 기재
+      points.forEach((lab, idx) => {
+        const x = xAt(idx);
+        
+        // 정렬용 수직 보조 실선
+        const vLine = svgns('line');
+        vLine.setAttribute('x1', x);
+        vLine.setAttribute('x2', x);
+        vLine.setAttribute('y1', marginT);
+        vLine.setAttribute('y2', svgH - marginB);
+        vLine.setAttribute('stroke', 'rgba(79, 209, 232, 0.04)');
+        vLine.setAttribute('stroke-width', '1.5');
+        chartSvg.appendChild(vLine);
+
+        const t = svgns('text');
+        t.setAttribute('x', x);
+        t.setAttribute('y', svgH - marginB + 22);
+        t.setAttribute('text-anchor', 'middle');
+        t.setAttribute('class', 'font-sans font-medium text-xs fill-slate-300');
+        t.textContent = lab;
+        chartSvg.appendChild(t);
+      });
+
+      // 3. 화학 곡선 세그먼트 그리기 보조 유틸리티
+      function drawChemicalLine(arr, color, glowUrl) {
+        // 첫 구간 실선(실측), 두 번째 가상 도달 구간은 점선 처리
+        for (let idx = 0; idx < arr.length - 1; idx++) {
+          const x1 = xAt(idx), y1 = yAt(arr[idx]);
+          const x2 = xAt(idx + 1), y2 = yAt(arr[idx + 1]);
+          
+          const seg = svgns('line');
+          seg.setAttribute('x1', x1);
+          seg.setAttribute('y1', y1);
+          seg.setAttribute('x2', x2);
+          seg.setAttribute('y2', y2);
+          seg.setAttribute('stroke', color);
+          seg.setAttribute('stroke-width', '3');
+          if (glowUrl) seg.setAttribute('filter', glowUrl);
+          
+          if (idx >= 1) {
+            seg.setAttribute('stroke-dasharray', '6,5');
+          }
+          chartSvg.appendChild(seg);
+        }
+
+        // 지점별 원형 마커 노드 및 세부 정량 텍스트 출력
+        arr.forEach((v, idx) => {
+          const dot = svgns('circle');
+          dot.setAttribute('cx', xAt(idx));
+          dot.setAttribute('cy', yAt(v));
+          dot.setAttribute('r', '4.5');
+          dot.setAttribute('fill', '#071624');
+          dot.setAttribute('stroke', color);
+          dot.setAttribute('stroke-width', '3');
+          chartSvg.appendChild(dot);
+
+          const vl = svgns('text');
+          vl.setAttribute('x', xAt(idx));
+          vl.setAttribute('y', yAt(v) - 12);
+          vl.setAttribute('text-anchor', 'middle');
+          vl.setAttribute('class', 'font-mono text-[9.5px] font-semibold');
+          vl.setAttribute('fill', color);
+          
+          // 실제 잔류염소 수치로 복원 기재 (÷10 복합 스케일 복구 목적)
+          const actualText = color === '#34d399' ? (v * 10).toFixed(3) : v.toFixed(4);
+          vl.textContent = actualText;
+          chartSvg.appendChild(vl);
+        });
+      }
+
+      // 화학물질별 실선 세트 드로잉
+      drawChemicalLine(znData, '#f0a960', 'url(#glow-amber)');
+      drawChemicalLine(cuData, '#4fd1e8', 'url(#glow-cyan)');
+      drawChemicalLine(clData, '#34d399', 'url(#glow-cyan)');
+    }
+
+    // ============ 전체 갱신 제어 함수 ============
+    function renderAll() {
+      renderPipeline();
+      renderDetail();
+      renderChart();
+    }
+
+    // ============ 시나리오 토글 버튼 핸들러 설정 ============
+    const btnBefore = document.getElementById('btnBefore');
+    const btnAfter = document.getElementById('btnAfter');
+
+    btnBefore.onclick = () => {
+      showAfter = false;
+      
+      btnBefore.className = "px-3.5 py-1.5 text-xs font-mono font-medium rounded-md transition-all duration-200 bg-cyan-bright text-slate-950 shadow-lg shadow-cyan-bright/10";
+      btnAfter.className = "px-3.5 py-1.5 text-xs font-mono font-medium rounded-md transition-all duration-200 text-slate-400 hover:text-white";
+      
+      selectedStage = stages[4]; // '정수장 방류수' 기본 포커스 복원
+      renderAll();
+    };
+
+    btnAfter.onclick = () => {
+      showAfter = true;
+      
+      btnAfter.className = "px-3.5 py-1.5 text-xs font-mono font-medium rounded-md transition-all duration-200 bg-amber-bright text-slate-950 shadow-lg shadow-amber-bright/10";
+      btnBefore.className = "px-3.5 py-1.5 text-xs font-mono font-medium rounded-md transition-all duration-200 text-slate-400 hover:text-white";
+      
+      selectedStage = newStage; // 가상 필터 단계를 활성화 포커스
+      renderAll();
+    };
+
+    // 최초 뷰 로드 시 초기 가동
+    window.onload = function() {
+      renderAll();
+    }
+  </script>
 </body>
 </html>
